@@ -1,0 +1,20 @@
+Здесь представлены документы по установке, администрированию и использованию Plesk’a. 
+Задача поставить продукт, создать несколько клиентов и несколько сайтов для них.
+Посмотреть на статистику генерируемую компонентами Webalizer, AWstats и внутри плеска.
+
+--Логи Апача--
+Логи самого Плеска:
+/usr/local/psa/admin/logs
+
+Логи отдельных виртульных хостов (веб + ssl + прокси) - самые главные:
+/var/www/vhosts/site1.test.plesk.ru/logs
+
+Логи апача для ВСЕХ хостов
+/var/log/apache2/other_vhosts_access.log
+
+Как найти логи:
+- try running locate access.log
+- Look for 'CustomLog' and 'ErrorLog' in your Apache configuration files, which are under /etc/apache2/httpd.conf
+
+Качать файлы с виртуалки:
+C:\Users\admin\Desktop\Useful\pscp -P 3022 root@127.0.0.1:/var/www/vhosts/site1.test.plesk.ru/logs/access_log file.log
