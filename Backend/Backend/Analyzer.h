@@ -33,10 +33,11 @@ private:
 	int currentHour;			// обрабатываемый час
 	std::set<std::string> setOfUniqueIPs;		// множество айпи, с которых обратились за день
 	std::set<std::string> setOfUniqueIPsHour;	// множество айпи, с которых обратились за час
-	// Отображения: IP <-> bytes/pages/unique_vis/hits	
+	// Отображения: IP <-> bytes/pages/visits/hits	
 	std::map<std::string,TBandwidth> mapIpBandwidth;
 	std::map<std::string,int> mapIpPages;
 	std::map<std::string,THits>	mapIpHits;
+	std::map<std::string,int>	mapIpVisits;
 
 
 public:

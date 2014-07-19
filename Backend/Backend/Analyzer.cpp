@@ -127,6 +127,7 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 				mapIpBandwidth.clear();
 				mapIpHits.clear();
 				mapIpPages.clear();
+				mapIpVisits.clear();
 			}
 			// если начал обрабатываться следующий час
 			if (currentHour!=record.hour){
@@ -150,22 +151,39 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 			bandwidthInHour[record.hour] += record.bytes;
 			// PAGES
 			// если не запрашивается ресурс, то это запрос страницы
-			if (record.path.rfind('.')==string::npos && record.path.rfind('?')==string::npos) 
+			if (record.path.rfind('.')==string::npos && record.path.rfind('?')==string::npos) {
 				pagesInHour[record.hour]++;
+				// IP <-> PAGES
+				if (mapIpPages.find(record.origin) != mapIpPages.end())
+					mapIpPages[record.origin]++;
+				else
+					mapIpPages[record.origin] = 0;
+			}
 			// VISITS
 			// запрос считается визитом, если он был сделан в следующий час
-			if (!record.origin.empty()){
+			if (!record.origin.empty())
+			{
 				if (setOfUniqueIPsHour.find(record.origin) == setOfUniqueIPsHour.end()) {
 					visitsInHour[record.hour]++;
 					setOfUniqueIPsHour.insert(record.origin);
 				}
+				// IP <-> VISITS
+				if (mapIpVisits.find(record.origin) != mapIpVisits.end())
+					mapIpVisits[record.origin]++;
+				else
+					mapIpVisits[record.origin] = 0;
 			}
 		}
 		// IP <-> HITS
-		mapIpHits[record.origin]
+		if (mapIpHits.find(record.origin) != mapIpHits.end())
+			mapIpHits[record.origin]++;
+		else
+			mapIpHits[record.origin] = 0;
 		// IP <-> BANDWIDTH
-		// IP <-> VISITS
-		// IP <-> PAGES
+		if (mapIpBandwidth.find(record.origin) != mapIpBandwidth.end())
+			mapIpBandwidth[record.origin]+= record.bytes;
+		else
+			mapIpBandwidth[record.origin] = 0;
 	}
 	hitsFile.close();
 	logFile.close();
@@ -220,7 +238,7 @@ bool Analyzer::parseString(std::string str, TLogRecord & logRecord)
 		sstream >> temp;	// считаем окончание строки
 	}
 	else{
-		logRecord.date = ""; logRecord.hour = "";
+		logRecord.date = ""; logRecord.hour = -1;
 	}
 
 	// считаем метод, ресурс, протокол
