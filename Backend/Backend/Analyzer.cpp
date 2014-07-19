@@ -12,7 +12,9 @@ Analyzer::~Analyzer(void)
 }
 
 bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string processedLogFileName, 
-					const std::string uniqueVisitorsFileName, const std::string hitsFileName)
+						const std::string uniqueVisitorsFileName, const std::string hitsFileName,
+						const std::string bandwidthFileName, const std::string pagesFilename,
+						const std::string visitsFileName)
 {
 	using namespace std;
 	// откроем логфайл
@@ -34,7 +36,7 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 	logFile.close();
 
 	// очистим логфайл
-	{ofstream of; of.open(logFileName,std::ios_base::trunc);}
+	{ofstream of; of.open(logFileName,std::ios_base::trunc); of.close();}
 
 	// запишем обработанные логи в конец файла обработанных логов
 	ofstream processedLogFile(processedLogFileName,std::ios::app);
@@ -43,10 +45,38 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 		// TODO: записать логи обратно в logFileName, чтобы не потерялись
 	} else
 		for(auto it = stringsToAnalyze.begin() ; it != stringsToAnalyze.end(); ++it)
-		{
 			processedLogFile << *it << endl;
-		}
+	processedLogFile.close();
+
+	// откроем файлы, в которые мы будем писать статистику
+	ofstream uniqueVisitorsFile(uniqueVisitorsFileName,std::ios::app);
+	if (uniqueVisitorsFile.is_open()){
+		std::cerr << "<ExStatistics> Access to hitsFile " + uniqueVisitorsFileName+ " is forbidden" << endl;
+		return false;
+	}
+	ofstream hitsFile(hitsFileName,std::ios::app);
+	if (hitsFile.is_open()){
+		std::cerr << "<ExStatistics> Access to hitsFile " + hitsFileName+ " is forbidden" << endl;
+		return false;
+	}
+	ofstream bandwidthFile(bandwidthFileName,std::ios::app);
+	if (bandwidthFile.is_open()){
+		std::cerr << "<ExStatistics> Access to hitsFile " + bandwidthFileName+ " is forbidden" << endl;
+		return false;
+	}
+	ofstream pagesFile(pagesFilename,std::ios::app);
+	if (pagesFile.is_open()){
+		std::cerr << "<ExStatistics> Access to hitsFile " + pagesFilename+ " is forbidden" << endl;
+		return false;
+	}
+	ofstream visitsFile(visitsFileName,std::ios::app);
+	if (visitsFile.is_open()){
+		std::cerr << "<ExStatistics> Access to hitsFile " + visitsFileName + " is forbidden" << endl;
+		return false;
+	}
+		
 	currentDate = "";
+	currentHour = -1;
 	// обработаем необработанные логи
 	for(auto it = stringsToAnalyze.begin() ; it != stringsToAnalyze.end(); ++it)
 	{
@@ -55,24 +85,96 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 		// если удалось разобрать (и поле даты не пусто), обработаем запись
 		if (ok && record.date != "")
 		{
-			// если обрабатывается следующий день, то обнулим счетчики
+			///
+			/// Запись в файлы статистики
+			///
+			// если начал обрабатывается следующий день
 			if (currentDate != record.date)
 			{
+				// добавим статистику о апедыдущем дне в конец файлов
+				if (currentDate != "")
+				{
+					// HITS - запишем дату, а затем информацию о показателях по часам
+					hitsFile << currentDate << " ";
+					for (int i=0; i<24; i++)
+						hitsFile << hitsInHour[i] << " ";
+					hitsFile << endl;
+					// uniqueIPs - запишем дату, а затем информацию о показателях по часам
+					uniqueVisitorsFile << currentDate << " ";
+					for (int i=0; i<24; i++)
+						uniqueVisitorsFile << uniqIPsInHour[i] << " ";
+					uniqueVisitorsFile << endl;
+					// BANDWIDTH
+					bandwidthFile << currentDate << " ";
+					for (int i=0; i<24; i++)
+						bandwidthFile << bandwidthInHour[i] << " ";
+					bandwidthFile << endl;
+					// PAGES
+					pagesFile << currentDate << " ";
+					for (int i=0; i<24; i++)
+						pagesFile << pagesInHour[i] << " ";
+					pagesFile << endl;
+					// VISITS
+					visitsFile << currentDate << " ";
+					for (int i=0; i<24; i++)
+						visitsFile << visitsInHour[i] << " ";
+					visitsFile << endl;
+				}
+				// обнулим счетчики
 				currentDate = record.date;
-				for(int i=0;i<24;i++) hitsInHour[i]=0;
+				for(int i=0;i<24;i++) {hitsInHour[i]=0;	uniqIPsInHour[i]=0; bandwidthInHour[i]=0; pagesInHour[i]=0; visitsInHour[0]=0;}
+				setOfUniqueIPs.clear();
+				mapIpBandwidth.clear();
+				mapIpHits.clear();
+				mapIpPages.clear();
 			}
-			hitsInHour[record.hour]++;		// увеличим число обращений в этот час на 1
-		}
-	}
+			// если начал обрабатываться следующий час
+			if (currentHour!=record.hour){
+				setOfUniqueIPsHour.clear();	// очистим айпи за час
+			}
 
-	// HITS
-	// добавим статистику о текущей дате в конец файла
-	ofstream hitsFile(hitsFileName,std::ios::app);
-	if (hitsFile.is_open())
-		std::cerr << "<ExStatistics> Access to hitsFile " + hitsFileName+ " is forbidden" << endl;
-	// запишем дату, а затем информацию о показателях по часам
-	hitsFile << 
+			///
+			/// расчет статистики
+			///
+			// HITS
+			hitsInHour[record.hour]++;		// увеличим число обращений в этот час на 1
+			// UNIQUE VISITORS
+			if (!record.origin.empty()){
+				// если такого ip еще не было, увеличим счетчик и добавим его в список
+				if (setOfUniqueIPs.find(record.origin) == setOfUniqueIPs.end()){
+					uniqIPsInHour[record.hour]++;
+					setOfUniqueIPs.insert(record.origin);
+				}
+			}
+			// BANDWIDTH
+			bandwidthInHour[record.hour] += record.bytes;
+			// PAGES
+			// если не запрашивается ресурс, то это запрос страницы
+			if (record.path.rfind('.')==string::npos && record.path.rfind('?')==string::npos) 
+				pagesInHour[record.hour]++;
+			// VISITS
+			// запрос считается визитом, если он был сделан в следующий час
+			if (!record.origin.empty()){
+				if (setOfUniqueIPsHour.find(record.origin) == setOfUniqueIPsHour.end()) {
+					visitsInHour[record.hour]++;
+					setOfUniqueIPsHour.insert(record.origin);
+				}
+			}
+		}
+		// IP <-> HITS
+		mapIpHits[record.origin]
+		// IP <-> BANDWIDTH
+		// IP <-> VISITS
+		// IP <-> PAGES
+	}
+	hitsFile.close();
+	logFile.close();
+	pagesFile.close();
+	bandwidthFile.close();
 }
+
+
+
 
 const std::string LOG_NOT_AVAILIABLE = "-";
 
