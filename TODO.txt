@@ -11,7 +11,7 @@
 - Подсчет трафика по часам                               [DONE]
 - Подсчет количества страниц по часам                    [DONE]
 - Как-то считать визиты                                  [DONE but consider revising]
-- Создание отображений: IP - bytes/pages/visits/hits     
+- Создание отображений: IP - bytes/pages/visits/hits     [DONE]
 - Подсчет в файлах статистики суммы сразу после даты
 - Make some fool defence (against wrong input files)     [DELAYED]
 - Убрать лишние set'ы (для уникальных IP)                       
