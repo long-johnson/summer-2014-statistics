@@ -14,7 +14,7 @@ Analyzer::~Analyzer(void)
 bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string processedLogFileName, 
 						const std::string uniqueVisitorsFileName, const std::string hitsFileName,
 						const std::string bandwidthFileName, const std::string pagesFilename,
-						const std::string visitsFileName)
+						const std::string visitsFileName, const std::string ipMappingFileName)
 {
 	using namespace std;
 	// откроем логфайл
@@ -31,7 +31,8 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 	{
 		std::string temp;
 		getline(logFile,temp);
-		stringsToAnalyze.push_back(temp);
+		if (!temp.empty())
+			stringsToAnalyze.push_back(temp);
 	}
 	logFile.close();
 
@@ -41,7 +42,7 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 	// запишем обработанные логи в конец файла обработанных логов
 	ofstream processedLogFile(processedLogFileName,std::ios::app);
 	if (!processedLogFile.is_open()){
-		std::cerr << "<ExStatistics> Access to processedLogFile " + logFileName + " is forbidden" << endl;
+		std::cerr << "<ExStatistics> Access to processedLogFile " + processedLogFileName + " is forbidden" << endl;
 		// TODO: записать логи обратно в logFileName, чтобы не потер€лись
 	} else
 		for(auto it = stringsToAnalyze.begin() ; it != stringsToAnalyze.end(); ++it)
@@ -50,28 +51,33 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 
 	// откроем файлы, в которые мы будем писать статистику
 	ofstream uniqueVisitorsFile(uniqueVisitorsFileName,std::ios::app);
-	if (uniqueVisitorsFile.is_open()){
-		std::cerr << "<ExStatistics> Access to hitsFile " + uniqueVisitorsFileName+ " is forbidden" << endl;
+	if (!uniqueVisitorsFile.is_open()){
+		std::cerr << "<ExStatistics> Access to " + uniqueVisitorsFileName+ " is forbidden" << endl;
 		return false;
 	}
 	ofstream hitsFile(hitsFileName,std::ios::app);
-	if (hitsFile.is_open()){
-		std::cerr << "<ExStatistics> Access to hitsFile " + hitsFileName+ " is forbidden" << endl;
+	if (!hitsFile.is_open()){
+		std::cerr << "<ExStatistics> Access to " + hitsFileName+ " is forbidden" << endl;
 		return false;
 	}
 	ofstream bandwidthFile(bandwidthFileName,std::ios::app);
-	if (bandwidthFile.is_open()){
-		std::cerr << "<ExStatistics> Access to hitsFile " + bandwidthFileName+ " is forbidden" << endl;
+	if (!bandwidthFile.is_open()){
+		std::cerr << "<ExStatistics> Access to " + bandwidthFileName+ " is forbidden" << endl;
 		return false;
 	}
 	ofstream pagesFile(pagesFilename,std::ios::app);
-	if (pagesFile.is_open()){
-		std::cerr << "<ExStatistics> Access to hitsFile " + pagesFilename+ " is forbidden" << endl;
+	if (!pagesFile.is_open()){
+		std::cerr << "<ExStatistics> Access to " + pagesFilename+ " is forbidden" << endl;
 		return false;
 	}
 	ofstream visitsFile(visitsFileName,std::ios::app);
-	if (visitsFile.is_open()){
-		std::cerr << "<ExStatistics> Access to hitsFile " + visitsFileName + " is forbidden" << endl;
+	if (!visitsFile.is_open()){
+		std::cerr << "<ExStatistics> Access to " + visitsFileName + " is forbidden" << endl;
+		return false;
+	}
+	ofstream ipMappingFile(ipMappingFileName,std::ios::app);
+	if (!ipMappingFile.is_open()){
+		std::cerr << "<ExStatistics> Access to " + ipMappingFileName + " is forbidden" << endl;
 		return false;
 	}
 		
@@ -91,38 +97,14 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 			// если начал обрабатываетс€ следующий день
 			if (currentDate != record.date)
 			{
-				// добавим статистику о апедыдущем дне в конец файлов
+				// добавим статистику о предыдущем дне в конец файлов
 				if (currentDate != "")
 				{
-					// HITS - запишем дату, а затем информацию о показател€х по часам
-					hitsFile << currentDate << " ";
-					for (int i=0; i<24; i++)
-						hitsFile << hitsInHour[i] << " ";
-					hitsFile << endl;
-					// uniqueIPs - запишем дату, а затем информацию о показател€х по часам
-					uniqueVisitorsFile << currentDate << " ";
-					for (int i=0; i<24; i++)
-						uniqueVisitorsFile << uniqIPsInHour[i] << " ";
-					uniqueVisitorsFile << endl;
-					// BANDWIDTH
-					bandwidthFile << currentDate << " ";
-					for (int i=0; i<24; i++)
-						bandwidthFile << bandwidthInHour[i] << " ";
-					bandwidthFile << endl;
-					// PAGES
-					pagesFile << currentDate << " ";
-					for (int i=0; i<24; i++)
-						pagesFile << pagesInHour[i] << " ";
-					pagesFile << endl;
-					// VISITS
-					visitsFile << currentDate << " ";
-					for (int i=0; i<24; i++)
-						visitsFile << visitsInHour[i] << " ";
-					visitsFile << endl;
+					writeToStatFiles(hitsFile,uniqueVisitorsFile, bandwidthFile,  pagesFile, visitsFile,  ipMappingFile);
 				}
 				// обнулим счетчики
 				currentDate = record.date;
-				for(int i=0;i<24;i++) {hitsInHour[i]=0;	uniqIPsInHour[i]=0; bandwidthInHour[i]=0; pagesInHour[i]=0; visitsInHour[0]=0;}
+				for(int i=0;i<24;i++) {hitsInHour[i]=0;	uniqIPsInHour[i]=0; bandwidthInHour[i]=0; pagesInHour[i]=0; visitsInHour[i]=0;}
 				setOfUniqueIPs.clear();
 				mapIpBandwidth.clear();
 				mapIpHits.clear();
@@ -132,6 +114,7 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 			// если начал обрабатыватьс€ следующий час
 			if (currentHour!=record.hour){
 				setOfUniqueIPsHour.clear();	// очистим айпи за час
+				currentHour = record.hour;
 			}
 
 			///
@@ -157,7 +140,7 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 				if (mapIpPages.find(record.origin) != mapIpPages.end())
 					mapIpPages[record.origin]++;
 				else
-					mapIpPages[record.origin] = 0;
+					mapIpPages[record.origin] = 1;
 			}
 			// VISITS
 			// запрос считаетс€ визитом, если он был сделан в следующий час
@@ -166,32 +149,91 @@ bool Analyzer::analyzeLogFile(const std::string logFileName, const std::string p
 				if (setOfUniqueIPsHour.find(record.origin) == setOfUniqueIPsHour.end()) {
 					visitsInHour[record.hour]++;
 					setOfUniqueIPsHour.insert(record.origin);
+				
+					// IP <-> VISITS
+					if (mapIpVisits.find(record.origin) != mapIpVisits.end())
+						mapIpVisits[record.origin]++;
+					else
+						mapIpVisits[record.origin] = 1;
 				}
-				// IP <-> VISITS
-				if (mapIpVisits.find(record.origin) != mapIpVisits.end())
-					mapIpVisits[record.origin]++;
-				else
-					mapIpVisits[record.origin] = 0;
 			}
 		}
 		// IP <-> HITS
 		if (mapIpHits.find(record.origin) != mapIpHits.end())
 			mapIpHits[record.origin]++;
 		else
-			mapIpHits[record.origin] = 0;
+			mapIpHits[record.origin] = 1;
 		// IP <-> BANDWIDTH
 		if (mapIpBandwidth.find(record.origin) != mapIpBandwidth.end())
-			mapIpBandwidth[record.origin]+= record.bytes;
+			mapIpBandwidth[record.origin] += record.bytes;
 		else
-			mapIpBandwidth[record.origin] = 0;
+			mapIpBandwidth[record.origin] = record.bytes;
 	}
+	// запишем напоследок
+	writeToStatFiles(hitsFile, uniqueVisitorsFile, bandwidthFile, pagesFile, visitsFile, ipMappingFile);
 	hitsFile.close();
 	logFile.close();
 	pagesFile.close();
 	bandwidthFile.close();
+	return true;
 }
 
 
+void Analyzer::writeToStatFiles(std::ofstream & hitsFile, std::ofstream & uniqueVisitorsFile,
+								std::ofstream & bandwidthFile, std::ofstream & pagesFile,
+								std::ofstream & visitsFile, std::ofstream & ipMappingFile)
+{
+	using namespace std;
+	// HITS - запишем дату, а затем информацию о показател€х по часам
+	hitsFile << currentDate << " ";
+	for (int i=0; i<24; i++)
+		hitsFile << hitsInHour[i] << " ";
+	hitsFile << endl;
+	// uniqueIPs - запишем дату, а затем информацию о показател€х по часам
+	uniqueVisitorsFile << currentDate << " ";
+	for (int i=0; i<24; i++)
+		uniqueVisitorsFile << uniqIPsInHour[i] << " ";
+	uniqueVisitorsFile << endl;
+	// BANDWIDTH
+	bandwidthFile << currentDate << " ";
+	for (int i=0; i<24; i++)
+		bandwidthFile << bandwidthInHour[i] << " ";
+	bandwidthFile << endl;
+	// PAGES
+	pagesFile << currentDate << " ";
+	for (int i=0; i<24; i++)
+		pagesFile << pagesInHour[i] << " ";
+	pagesFile << endl;
+	// VISITS
+	visitsFile << currentDate << " ";
+	for (int i=0; i<24; i++)
+		visitsFile << visitsInHour[i] << " ";
+	visitsFile << endl;
+	// ќтображени€: IP <-> hits/bytes/pages/visits/
+	// список ip кончаетс€ _END_
+	ipMappingFile << currentDate << endl;
+	if (!mapIpHits.empty())
+	{
+		auto mapItem = mapIpHits.begin();
+		for (;mapItem!=mapIpHits.end();mapItem++){
+			ipMappingFile << mapItem->first << " " << mapItem->second << " ";	//hits
+			if(mapIpBandwidth.find(mapItem->first)!=mapIpBandwidth.end())		// bits
+				ipMappingFile << mapIpBandwidth[mapItem->first] << " ";
+			else
+				ipMappingFile << "0" << " ";
+			if(mapIpPages.find(mapItem->first)!=mapIpPages.end())				// pages
+				ipMappingFile << mapIpPages[mapItem->first] << " ";
+			else
+				ipMappingFile << "0" << " ";
+			if(mapIpVisits.find(mapItem->first)!=mapIpVisits.end())				// visits
+				ipMappingFile << mapIpVisits[mapItem->first];
+			else
+				ipMappingFile << "0";
+			ipMappingFile << endl;
+		}
+		ipMappingFile << "_END_" << endl;
+	}
+}
 
 
 const std::string LOG_NOT_AVAILIABLE = "-";
@@ -202,6 +244,9 @@ bool Analyzer::parseString(std::string str, TLogRecord & logRecord)
 	string temp;
 	char ctemp;
 	stringstream sstream(str);
+
+	if (str.size() < 10)
+		return false;
 	
 	// считаем ip
 	sstream >> temp;

@@ -35,11 +35,17 @@ private:
 	std::set<std::string> setOfUniqueIPsHour;	// множество айпи, с которых обратились за час
 	// Отображения: IP <-> bytes/pages/visits/hits	
 	std::map<std::string,TBandwidth> mapIpBandwidth;
-	std::map<std::string,int> mapIpPages;
+	std::map<std::string,int>   mapIpPages;
 	std::map<std::string,THits>	mapIpHits;
 	std::map<std::string,int>	mapIpVisits;
 
-
+private:
+	///
+	/// Осуществить запись в файлы статистики
+	///
+	void Analyzer::writeToStatFiles(std::ofstream & hitsFile, std::ofstream & uniqueVisitorsFile,
+								std::ofstream & bandwidthFile, std::ofstream & pagesFile,
+								std::ofstream & visitsFile, std::ofstream & ipMappingFile);
 public:
 	Analyzer(void);
 	~Analyzer(void);
@@ -50,7 +56,7 @@ public:
 	bool analyzeLogFile(const std::string logFileName, const std::string processedLogFileName, 
 						const std::string uniqueVisitorsFileName, const std::string hitsFileName,
 						const std::string bandwidthFileName, const std::string pagesFilename,
-						const std::string visitsFileName);
+						const std::string visitsFileName,  const std::string ipMappingFileName);
 	///
 	/// разобрать строку
 	///
