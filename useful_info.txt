@@ -18,3 +18,6 @@
 
 Качать файлы с виртуалки:
 C:\Users\admin\Desktop\Useful\pscp -P 3022 root@127.0.0.1:/var/www/vhosts/site1.test.plesk.ru/logs/access_log file.log
+
+: папка var
+/usr/local/psa/var/modules/test
