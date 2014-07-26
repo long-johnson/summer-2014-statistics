@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<module>
+  <id>extended-plesk-statistics</id>
+  <name>Extended Plesk Statistics</name>
+  <description>Provide statistics for particular sites and for subscription in general</description>
+  <version>1.0</version>
+  <release>1</release>
+  <icon/>
+  <vendor>Uvarov V.E.</vendor>
+  <url>uvarov.vadim42@gmail.com</url>
+  <plesk_min_version>12.0.0</plesk_min_version>
+</module>

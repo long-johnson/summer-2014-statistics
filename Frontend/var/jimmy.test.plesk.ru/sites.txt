@@ -1,0 +1,2 @@
+jimmy.test.plesk.ru
+doors.test.plesk.ru

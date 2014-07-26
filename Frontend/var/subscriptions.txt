@@ -1,0 +1,3 @@
+jimmy.test.plesk.ru
+metallica.test.plesk.ru
+site1.test.plesk.ru
