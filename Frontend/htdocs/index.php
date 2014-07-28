@@ -1,28 +1,7 @@
 <?php pm_Context::init('extended-plesk-statistics'); ?>
 <html>
   <head>
-    <!--<script type="text/javascript" src="https://www.google.com/jsapi"></script>
-    <script type="text/javascript">
-      google.load("visualization", "1", {packages:["corechart"]});
-      //google.setOnLoadCallback(drawChart);
-      function drawChart() {
-        var data = google.visualization.arrayToDataTable([
-          ['Year', 'Sales', 'Expenses'],
-          ['2004',  1000,      400],
-          ['2005',  1170,      460],
-          ['2006',  660,       1120],
-          ['2007',  1030,      540]
-        ]);
-
-        var options = {
-          title: 'Company Performance',
-          hAxis: {title: 'Year', titleTextStyle: {color: 'red'}}
-        };
-
-        var chart = new google.visualization.ColumnChart(document.getElementById('chart_div'));
-        chart.draw(data, options);
-      }
-    </script>-->
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
   </head>
   <body>
     <!--<div id="chart_div" style="width: 900px; height: 500px;"></div>-->
@@ -96,6 +75,10 @@
 	echo '<option '; if ($_POST['timetype'] == "month") echo 'selected '; echo 'value="month">Month</option>';
 	echo '</select><br>';
 	
+	// выбор показываемого по-умолчанию параметра
+	if (!isset($_POST['paramonplot']))
+		$_POST['paramonplot'] = "hits";
+	
 	// make path to the file
 	$websitepath = "/usr/local/psa/var/modules/extended-plesk-statistics/" . trim($_POST['subscription']) . '/' . trim($_POST['site']) . '/';
 	// read files hits, pages, uniq, visits, bandwidth into array strings
@@ -104,16 +87,17 @@
 	$fileuniq = file($websitepath . 'unique_visitors.stat', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 	$filevisits = file($websitepath . 'visits.stat', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 	$fileband = file($websitepath . 'bandwidth.stat', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+	$fileipmap = file($websitepath . 'ip_mapping.stat', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 	
 	// в зависимости от промежутка времени (час,день,мес€ц) по-разному посчитать статистику
 	switch ($_POST['timetype']) {
     case "hour":	// if we show stats hour by hour
         // TODO: default time
 		if (!isset($_POST['begindatehour'])){
-			$_POST['begindatehour'] = "2014-07-12";
+			$_POST['begindatehour'] = "2014-07-13";
 		}
 		if (!isset($_POST['enddatehour'])){
-			$_POST['enddatehour'] = "2014-07-15";
+			$_POST['enddatehour'] = "2014-07-13";
 		}	
 		// choose begin date
 		echo '<input type="date" id="begindatehour" name="begindatehour" onchange="this.form.submit();" value="' . $_POST['begindatehour'] . '"/><br>';
@@ -135,58 +119,139 @@
 		
 		foreach(new DatePeriod($d1, $interval, $d2) as $d) { 
 			$curDate = $d->format('d/M/Y');
-			//echo($curDate . '<br>');
 			// найдем в файле данную строку				// TODO: ќѕ“»ћјЋ№Ќ≈≈!!!
-			foreach ($filehits as $record){
-				//echo($record . '<br>');
+			// HITS
+			foreach ($filehits as $record)
 				if (strpos($record,$curDate) !== false){
-					preg_match_all('/([\d]+)/', $record, $hourlyhits);	// that extracts all ints from string to int array
-					//print_r($hourlyhits);
-					for ($i=0;$i<24;++$i) {
-						$stat['hits'][$curDate][$i] += (int)$hourlyhits[0][$i+2];
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['hits'][$curDate][$i] += (int)$hourlystat[0][$i+2];
+				}
+			// PAGES
+			foreach ($filepages as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['pages'][$curDate][$i] += (int)$hourlystat[0][$i+2];
+				}
+			// UNIQ
+			foreach ($fileuniq as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['uniq'][$curDate][$i] += (int)$hourlystat[0][$i+2];
+				}
+			// VISITS
+			foreach ($filevisits as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['visits'][$curDate][$i] += (int)$hourlystat[0][$i+2];
+				}
+			// BAND
+			foreach ($fileband as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['band'][$curDate][$i] += (int)$hourlystat[0][$i+2]/1024;
+				}
+				
+			// IP <=> hits/bandwidth/pages/visits
+			for ($i=0, $size=count($fileipmap); $i<$size; ++$i){
+				$str = $fileipmap[$i];
+				if (strpos($str,$curDate) !== false){
+					++$i; $str = $fileipmap[$i];
+					while($str!="_END_"){
+						$parsed = explode(" ", $str);
+						++$i; $str = $fileipmap[$i];
+						if (array_key_exists($parsed[0],$stat['ip'])){
+							$stat['ip'][$parsed[0]]['hits'] += (int) $parsed[1];
+							$stat['ip'][$parsed[0]]['band'] += (int) $parsed[2]/1024;	//kb
+							$stat['ip'][$parsed[0]]['pages'] += (int) $parsed[3];
+							$stat['ip'][$parsed[0]]['visits'] += (int) $parsed[4];
+						}else{
+							$stat['ip'][$parsed[0]]['hits'] = (int) $parsed[1];
+							$stat['ip'][$parsed[0]]['band'] = (int) $parsed[2]/1024;	//kb
+							$stat['ip'][$parsed[0]]['pages'] = (int) $parsed[3];
+							$stat['ip'][$parsed[0]]['visits'] = (int) $parsed[4];
+						}
 					}
-					
 				}
 			}
-		} 
+		}
 		
-		/*foreach ($stat['hits'] as $date => $hour){
-			for ($i=0;$i<24;++$i) {
-				echo $hour[$i]; echo ' ';
-			}
-			echo '<br>';
-		}*/
-		
-?>
-		<script type="text/javascript">
+		// скрипт на отрисовку графика
+		switch ($_POST['paramonplot']){
+		case 'hits': $legend= 'Hits'; break; case 'pages': $legend= 'Visited pages'; break; 
+		case 'band': $legend= 'Bandwidth (kb)'; break; case 'visits': $legend= 'Number of visits'; break;  
+		case 'uniq': $legend= 'Number of unique visitors'; break; 
+		}
+		echo '<script type="text/javascript">
 		google.load("visualization", "1", {packages:["corechart"]});
 		google.setOnLoadCallback(drawChart);
 		function drawChart() {
         var data = google.visualization.arrayToDataTable([
-          ['Day', 'Hits'],
-<?php
-		foreach ($stat['hits'] as $date => $hour){
-			echo '[\'' . $date . $hour;
-			for ($i=1;$i<24;++$i) {
-				echo  '' $hour[$i];
+          [\'Day\', \' ' . $legend . '\'],';
+		foreach ($stat[$_POST['paramonplot']] as $date => $hour){
+			//echo '[\'' . $date . ':' . 0 . 'h\', ' . $hour[0] . '],';
+			for ($i=0;$i<24;++$i) {
+				echo '[\'' . $date . ':' . $i . 'h\', ' . floor($hour[$i]) . '],';
 			}
-          ['2004',  1000,      400],
-          ['2005',  1170,      460],
-          ['2006',  660,       1120],
-          ['2007',  1030,      540]
-?>
-        ]);
-
+		}
+        echo ']);
         var options = {
-          title: 'Company Performance',
-          hAxis: {title: 'Year', titleTextStyle: {color: 'red'}}
+          title: \'Hourly statistics\',
+          hAxis: {showTextEvery:24}
         };
-
-        var chart = new google.visualization.ColumnChart(document.getElementById('chart_div'));
+        var chart = new google.visualization.ColumnChart(document.getElementById(\'chart_div\'));
         chart.draw(data, options);
-      }
-		</script>
-<?php
+		}
+		</script>';
+		
+		// скрипт на отрисовку сводной таблицы
+		echo "<script type='text/javascript'>
+		google.load('visualization', '1', {packages:['table']});
+		google.setOnLoadCallback(drawVisualization);
+		function drawVisualization() {
+			// Create and populate the data table.
+			var data = google.visualization.arrayToDataTable([
+			['Hour', 'Hits', 'Pages', 'Unique visitors', 'Visits', 'Bandwidth (kb)'],";
+		foreach ($stat['hits'] as $date => $hour){
+			//echo '[\'' . $date . ':' . 0 . 'h\', ' . $hour[0] . ',' . $stat['pages'][$date][0] . ',' . $stat['uniq'][$date][0] .
+				// ',' . $stat['visits'][$date][0] . ',' . $stat['band'][$date][0] . '],';
+			for ($i=0;$i<24;++$i) {
+				echo '[\'' . $date . ':' . $i . 'h\', ' . $hour[$i] . ',' . $stat['pages'][$date][$i] . ',' . $stat['uniq'][$date][$i] .
+				 ',' . $stat['visits'][$date][$i] . ',' . floor($stat['band'][$date][$i]) . '],';
+			}
+		}
+		echo "]);
+			visualization = new google.visualization.Table(document.getElementById('table_div'));
+			var options = {
+				page: 'enable', pageSize: 24
+			};
+			visualization.draw(data, options);
+		} </script>";
+		
+		// скрипт на отрисовку таблицы с IP
+		echo "<script type='text/javascript'>
+		google.load('visualization', '1', {packages:['table']});
+		google.setOnLoadCallback(drawIpTable);
+		function drawIpTable() {
+			// Create and populate the data table.
+			var data = google.visualization.arrayToDataTable([
+			['IP', 'Hits', 'Pages', 'Visits', 'Bandwidth (kb)'],";
+		foreach ($stat['ip'] as $ip => $params){
+				echo '[\'' . $ip . '\', ' . $params['hits'] . ',' . $params['pages'] . ',' . $params['visits'] .
+				 ',' . floor($params['band']) . '],';
+		}
+		echo "]);
+			visualization = new google.visualization.Table(document.getElementById('table_ip'));
+			var options = {
+				page: 'enable', pageSize: 25
+			};
+			visualization.draw(data, options);
+		} </script>";
+		
         break;
     case "day":
         echo "i равно 1";
@@ -197,8 +262,26 @@
 	}
 	
 	
-	
+	// выбор показываемого параметра
+	echo '<select name="paramonplot" id="paramonplot" onchange="this.form.submit();">';
+	echo '<option disabled>Select parameter to show on plot...</option>';
+	echo '<option '; if ($_POST['paramonplot'] == "hits") echo 'selected '; echo 'value="hits">Hits</option>';
+	echo '<option '; if ($_POST['paramonplot'] == "pages") echo 'selected '; echo 'value="pages">Pages</option>';
+	echo '<option '; if ($_POST['paramonplot'] == "uniq") echo 'selected '; echo 'value="uniq">Unique visitors</option>';
+	echo '<option '; if ($_POST['paramonplot'] == "visits") echo 'selected '; echo 'value="visits">Visits</option>';
+	echo '<option '; if ($_POST['paramonplot'] == "band") echo 'selected '; echo 'value="band">Bandwidth</option>';
+	echo '</select><br>';
 	echo '</form>';
+	
+	// собственно элемент графика
+	echo "<b>Statistics plot</b> <br>";
+	echo "<div id='chart_div' style='height: 400px;'></div><br>";
+	// собственно элемент таблицы
+	echo "<b>Statistics summary table</b> <br>";
+	echo "<div id='table_div'></div><br><br>";
+	// собственно элемент таблицы отношений ip <=> параметр
+	echo "<b>Statistics by IPs</b> <br>";
+	echo "<div id='table_ip'></div><br>";
 ?>
   </body>
 </html>
