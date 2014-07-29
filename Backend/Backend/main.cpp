@@ -7,9 +7,57 @@
 
 int main(int argc, char * argv[])
 {
-	TLogRecord  logRecord;
+	using namespace std;
+	// считаем список подписок
+	ifstream subscriptionsFile("subscriptions.txt");
+	if (!subscriptionsFile.is_open()) {
+		std::cerr << "<ExStatistics> Can't open subscriptions.txt" << endl;
+		return false;
+	}
+	std::vector<std::string> subscriptions;
+	while (!subscriptionsFile.eof())
+	{
+		std::string temp;
+		subscriptionsFile >> temp; //getline(subscriptionsFile,temp);
+		if (!temp.empty())
+			subscriptions.push_back(temp);
+	}
+	subscriptionsFile.close();
+
+	// заполним список сайтов, которые нужно обработать и путей к ним
+	std::vector<std::string> pathToStatFiles;
+	std::vector<std::string> pathToLogFiles;
+	for each (string str in subscriptions){
+		ifstream sitesFile(str + "/sites.txt");
+		if (!sitesFile.is_open()) {
+			std::cerr << "<ExStatistics> Can't open " + str + "/sites.txt" << endl;
+			return false;
+		}
+		while (!sitesFile.eof())
+		{
+			std::string temp;
+			sitesFile >> temp; //getline(sitesFile,temp);
+			if (!temp.empty()){
+				pathToStatFiles.push_back("/usr/local/psa/var/modules/extended-plesk-statistics/" + str + "/"+ temp + "/");
+				pathToLogFiles.push_back("/var/www/vhosts/system/" + temp + "/logs/");
+			}
+		}
+		sitesFile.close();
+	}
+
+	// запустим анализ логов
 	Analyzer anal;
-	anal.analyzeLogFile("access.log","access.log","unique_visitors.stat","hits.stat","bandwidth.stat","pages.stat","visits.stat","ip_mapping.stat");
+	for (int i=0, size = pathToStatFiles.size(); i < size; i++){
+		string acces_log = pathToLogFiles[i] + "access_log";
+		string acces_log_processed = pathToLogFiles[i] + "access_log.processed";
+		string unique =  pathToStatFiles[i] + "unique_visitors.stat";
+		string hits =  pathToStatFiles[i] + "hits.stat";
+		string band =  pathToStatFiles[i] + "bandwidth.stat";
+		string pages =  pathToStatFiles[i] + "pages.stat";
+		string visits =  pathToStatFiles[i] + "visits.stat";
+		string ip_mapping =  pathToStatFiles[i] + "ip_mapping.stat";
+		anal.analyzeLogFile(acces_log,acces_log_processed,unique,hits,band,pages,visits,ip_mapping);
+	}
 	return 0;
 }
 
