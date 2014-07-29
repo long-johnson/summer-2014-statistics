@@ -90,15 +90,25 @@
 	$fileipmap = file($websitepath . 'ip_mapping.stat', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
 	
 	// в зависимости от промежутка времени (час,день,мес€ц) по-разному посчитать статистику
-	switch ($_POST['timetype']) {
+	switch ($_POST['timetype']) { //*********************************„ас*************************************************************
     case "hour":	// if we show stats hour by hour
         // TODO: default time
+		session_start();						// стратуем
 		if (!isset($_POST['begindatehour'])){
-			$_POST['begindatehour'] = "2014-07-13";
+			if (array_key_exists('begindatehour',$_SESSION)){
+				$_POST['begindatehour']=$_SESSION['begindatehour'];
+			}else
+				$_POST['begindatehour'] = "2014-07-13";	//default
 		}
 		if (!isset($_POST['enddatehour'])){
-			$_POST['enddatehour'] = "2014-07-13";
-		}	
+			if (array_key_exists('enddatehour',$_SESSION)){
+				$_POST['enddatehour']=$_SESSION['enddatehour'];
+			}else
+				$_POST['enddatehour'] = "2014-07-13";	//default
+		}
+		$_SESSION['begindatehour'] = $_POST['begindatehour'];
+		$_SESSION['enddatehour'] = $_POST['enddatehour'];
+		
 		// choose begin date
 		echo '<input type="date" id="begindatehour" name="begindatehour" onchange="this.form.submit();" value="' . $_POST['begindatehour'] . '"/><br>';
 		// choose end date
@@ -253,11 +263,329 @@
 		} </script>";
 		
         break;
-    case "day":
-        echo "i равно 1";
+    case "day":	//*********************************ƒень*************************************************************
+		session_start();						// стратуем
+		if (!isset($_POST['begindateday'])){
+			if (array_key_exists('begindateday',$_SESSION)){
+				$_POST['begindateday']=$_SESSION['begindateday'];
+			}else
+				$_POST['begindateday'] = "2014-07-12";	//default
+		}
+		if (!isset($_POST['enddateday'])){
+			if (array_key_exists('enddateday',$_SESSION)){
+				$_POST['enddateday']=$_SESSION['enddateday'];
+			}else
+				$_POST['enddateday'] = "2014-07-17";	//default
+		}
+		$_SESSION['begindateday'] = $_POST['begindateday'];
+		$_SESSION['enddateday'] = $_POST['enddateday'];
+		
+		// choose begin date
+		echo '<input type="date" id="begindateday" name="begindateday" onchange="this.form.submit();" value="' . $_POST['begindateday'] . '"/><br>';
+		// choose end date
+		echo '<input type="date" id="enddateday" name="enddateday"  onchange="this.form.submit();" value="' . $_POST['enddateday'] . '"/><br>';
+		
+		$interval = new DateInterval('P1D'); 
+		$d1 = new Datetime($_POST['begindateday']); 
+		$d2 = new Datetime($_POST['enddateday']); $d2->add($interval);
+		
+		// сначала заполним массив статистики нул€ми
+		foreach(new DatePeriod($d1, $interval, $d2) as $d) {
+			$curDate = $d->format('d/M/Y');
+			$stat['hits'][$curDate] = 0; $stat['pages'][$curDate] = 0;
+			$stat['uniq'][$curDate] = 0; $stat['visits'][$curDate] = 0; $stat['band'][$curDate] = 0;
+		}
+		
+		foreach(new DatePeriod($d1, $interval, $d2) as $d) { 
+			$curDate = $d->format('d/M/Y');
+			// найдем в файле данную строку				// TODO: ќѕ“»ћјЋ№Ќ≈≈!!!
+			// HITS
+			foreach ($filehits as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['hits'][$curDate] += (int)$hourlystat[0][$i+2];
+				}
+			// PAGES
+			foreach ($filepages as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['pages'][$curDate] += (int)$hourlystat[0][$i+2];
+				}
+			// UNIQ
+			foreach ($fileuniq as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['uniq'][$curDate] += (int)$hourlystat[0][$i+2];
+				}
+			// VISITS
+			foreach ($filevisits as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['visits'][$curDate] += (int)$hourlystat[0][$i+2];
+				}
+			// BAND
+			foreach ($fileband as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['band'][$curDate] += (int)$hourlystat[0][$i+2]/1024;
+				}
+				
+			// IP <=> hits/bandwidth/pages/visits
+			for ($i=0, $size=count($fileipmap); $i<$size; ++$i){
+				$str = $fileipmap[$i];
+				if (strpos($str,$curDate) !== false){
+					++$i; $str = $fileipmap[$i];
+					while($str!="_END_"){
+						$parsed = explode(" ", $str);
+						++$i; $str = $fileipmap[$i];
+						if (array_key_exists($parsed[0],$stat['ip'])){
+							$stat['ip'][$parsed[0]]['hits'] += (int) $parsed[1];
+							$stat['ip'][$parsed[0]]['band'] += (int) $parsed[2]/1024;	//kb
+							$stat['ip'][$parsed[0]]['pages'] += (int) $parsed[3];
+							$stat['ip'][$parsed[0]]['visits'] += (int) $parsed[4];
+						}else{
+							$stat['ip'][$parsed[0]]['hits'] = (int) $parsed[1];
+							$stat['ip'][$parsed[0]]['band'] = (int) $parsed[2]/1024;	//kb
+							$stat['ip'][$parsed[0]]['pages'] = (int) $parsed[3];
+							$stat['ip'][$parsed[0]]['visits'] = (int) $parsed[4];
+						}
+					}
+				}
+			}
+		}
+		
+		// скрипт на отрисовку графика
+		switch ($_POST['paramonplot']){
+		case 'hits': $legend= 'Hits'; break; case 'pages': $legend= 'Visited pages'; break; 
+		case 'band': $legend= 'Bandwidth (kb)'; break; case 'visits': $legend= 'Number of visits'; break;  
+		case 'uniq': $legend= 'Number of unique visitors'; break; 
+		}
+		echo '<script type="text/javascript">
+		google.load("visualization", "1", {packages:["corechart"]});
+		google.setOnLoadCallback(drawChart);
+		function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+          [\'Day\', \' ' . $legend . '\'],';
+		foreach ($stat[$_POST['paramonplot']] as $date => $day){
+				echo '[\'' . $date . '\', ' . floor($day) . '],';
+		}
+        echo ']);
+        var options = {
+          title: \'Daily statistics\'
+        };
+        var chart = new google.visualization.ColumnChart(document.getElementById(\'chart_div\'));
+        chart.draw(data, options);
+		}
+		</script>';
+		
+		// скрипт на отрисовку сводной таблицы
+		echo "<script type='text/javascript'>
+		google.load('visualization', '1', {packages:['table']});
+		google.setOnLoadCallback(drawVisualization);
+		function drawVisualization() {
+			// Create and populate the data table.
+			var data = google.visualization.arrayToDataTable([
+			['Hour', 'Hits', 'Pages', 'Unique visitors', 'Visits', 'Bandwidth (kb)'],";
+		foreach ($stat['hits'] as $date => $day){
+				echo '[\'' . $date . '\', ' . $day . ',' . $stat['pages'][$date] . ',' . $stat['uniq'][$date] .
+				 ',' . $stat['visits'][$date] . ',' . floor($stat['band'][$date]) . '],';
+		}
+		echo "]);
+			visualization = new google.visualization.Table(document.getElementById('table_div'));
+			var options = {
+				page: 'enable', pageSize: 24
+			};
+			visualization.draw(data, options);
+		} </script>";
+		
+		// скрипт на отрисовку таблицы с IP
+		echo "<script type='text/javascript'>
+		google.load('visualization', '1', {packages:['table']});
+		google.setOnLoadCallback(drawIpTable);
+		function drawIpTable() {
+			// Create and populate the data table.
+			var data = google.visualization.arrayToDataTable([
+			['IP', 'Hits', 'Pages', 'Visits', 'Bandwidth (kb)'],";
+		foreach ($stat['ip'] as $ip => $params){
+				echo '[\'' . $ip . '\', ' . $params['hits'] . ',' . $params['pages'] . ',' . $params['visits'] .
+				 ',' . floor($params['band']) . '],';
+		}
+		echo "]);
+			visualization = new google.visualization.Table(document.getElementById('table_ip'));
+			var options = {
+				page: 'enable', pageSize: 20
+			};
+			visualization.draw(data, options);
+		} </script>";
+
         break;
-    case "month":
-        echo "i равно 2";
+    case "month":  //*************************************** ћ≈—я÷ ********************************************************
+        
+		session_start();						// стратуем
+		if (!isset($_POST['begindatemonth'])){
+			if (array_key_exists('begindatemonth',$_SESSION)){
+				$_POST['begindatemonth']=$_SESSION['begindatemonth'];
+			}else
+				$_POST['begindatemonth'] = "2014-01";	//default
+		}
+		if (!isset($_POST['enddatemonth'])){
+			if (array_key_exists('enddatemonth',$_SESSION)){
+				$_POST['enddatemonth']=$_SESSION['enddatemonth'];
+			}else
+				$_POST['enddatemonth'] = "2014-12";	//default
+		}
+		$_SESSION['begindatemonth'] = $_POST['begindatemonth'];
+		$_SESSION['enddatemonth'] = $_POST['enddatemonth'];
+		
+		// choose begin date
+		echo '<input type="month" id="begindatemonth" name="begindatemonth" onchange="this.form.submit();" value="' . $_POST['begindatemonth'] . '"/><br>';
+		// choose end date
+		echo '<input type="month" id="enddatemonth" name="enddatemonth"  onchange="this.form.submit();" value="' . $_POST['enddatemonth'] . '"/><br>';
+		
+		$interval = new DateInterval('P1D'); 
+		$d1 = new Datetime($_POST['begindatemonth'] . '-01'); 									// 1 день первого мес€ца
+		$d2 = new Datetime($_POST['enddatemonth'] . '-01'); $d2->add(new DateInterval('P1M'));	// последний день последнего мес€ца		
+		
+		// сначала заполним массив статистики нул€ми
+		foreach(new DatePeriod($d1, new DateInterval('P1M'), $d2) as $d) {
+			$curDate = $d->format('M/Y');
+			$stat['hits'][$curDate] = 0; $stat['pages'][$curDate] = 0;
+			$stat['uniq'][$curDate] = 0; $stat['visits'][$curDate] = 0; $stat['band'][$curDate] = 0;
+		}
+		
+		foreach(new DatePeriod($d1, $interval, $d2) as $d) { 
+			$curDate = $d->format('d/M/Y');
+			$monthYear = $d->format('M/Y');
+			// найдем в файле данную строку				// TODO: ќѕ“»ћјЋ№Ќ≈≈!!!
+			// HITS
+			foreach ($filehits as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['hits'][$monthYear] += (int)$hourlystat[0][$i+2];
+				}
+			// PAGES
+			foreach ($filepages as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['pages'][$monthYear] += (int)$hourlystat[0][$i+2];
+				}
+			// UNIQ
+			foreach ($fileuniq as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['uniq'][$monthYear] += (int)$hourlystat[0][$i+2];
+				}
+			// VISITS
+			foreach ($filevisits as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['visits'][$monthYear] += (int)$hourlystat[0][$i+2];
+				}
+			// BAND
+			foreach ($fileband as $record)
+				if (strpos($record,$curDate) !== false){
+					preg_match_all('/([\d]+)/', $record, $hourlystat);	// that extracts all ints from string to int array
+					for ($i=0;$i<24;++$i)
+						$stat['band'][$monthYear] += (int)$hourlystat[0][$i+2]/1024;
+				}
+				
+			// IP <=> hits/bandwidth/pages/visits
+			for ($i=0, $size=count($fileipmap); $i<$size; ++$i){
+				$str = $fileipmap[$i];
+				if (strpos($str,$curDate) !== false){
+					++$i; $str = $fileipmap[$i];
+					while($str!="_END_"){
+						$parsed = explode(" ", $str);
+						++$i; $str = $fileipmap[$i];
+						if (array_key_exists($parsed[0],$stat['ip'])){
+							$stat['ip'][$parsed[0]]['hits'] += (int) $parsed[1];
+							$stat['ip'][$parsed[0]]['band'] += (int) $parsed[2]/1024;	//kb
+							$stat['ip'][$parsed[0]]['pages'] += (int) $parsed[3];
+							$stat['ip'][$parsed[0]]['visits'] += (int) $parsed[4];
+						}else{
+							$stat['ip'][$parsed[0]]['hits'] = (int) $parsed[1];
+							$stat['ip'][$parsed[0]]['band'] = (int) $parsed[2]/1024;	//kb
+							$stat['ip'][$parsed[0]]['pages'] = (int) $parsed[3];
+							$stat['ip'][$parsed[0]]['visits'] = (int) $parsed[4];
+						}
+					}
+				}
+			}
+		}
+		
+		// скрипт на отрисовку графика
+		switch ($_POST['paramonplot']){
+		case 'hits': $legend= 'Hits'; break; case 'pages': $legend= 'Visited pages'; break; 
+		case 'band': $legend= 'Bandwidth (kb)'; break; case 'visits': $legend= 'Number of visits'; break;  
+		case 'uniq': $legend= 'Number of unique visitors'; break; 
+		}
+		echo '<script type="text/javascript">
+		google.load("visualization", "1", {packages:["corechart"]});
+		google.setOnLoadCallback(drawChart);
+		function drawChart() {
+        var data = google.visualization.arrayToDataTable([
+          [\'Day\', \' ' . $legend . '\'],';
+		foreach ($stat[$_POST['paramonplot']] as $date => $day){
+				echo '[\'' . $date . '\', ' . floor($day) . '],';
+		}
+        echo ']);
+        var options = {
+          title: \'Daily statistics\'
+        };
+        var chart = new google.visualization.ColumnChart(document.getElementById(\'chart_div\'));
+        chart.draw(data, options);
+		}
+		</script>';
+		
+		// скрипт на отрисовку сводной таблицы
+		echo "<script type='text/javascript'>
+		google.load('visualization', '1', {packages:['table']});
+		google.setOnLoadCallback(drawVisualization);
+		function drawVisualization() {
+			// Create and populate the data table.
+			var data = google.visualization.arrayToDataTable([
+			['Hour', 'Hits', 'Pages', 'Unique visitors', 'Visits', 'Bandwidth (kb)'],";
+		foreach ($stat['hits'] as $date => $day){
+				echo '[\'' . $date . '\', ' . $day . ',' . $stat['pages'][$date] . ',' . $stat['uniq'][$date] .
+				 ',' . $stat['visits'][$date] . ',' . floor($stat['band'][$date]) . '],';
+		}
+		echo "]);
+			visualization = new google.visualization.Table(document.getElementById('table_div'));
+			var options = {
+				page: 'enable', pageSize: 12
+			};
+			visualization.draw(data, options);
+		} </script>";
+		
+		// скрипт на отрисовку таблицы с IP
+		echo "<script type='text/javascript'>
+		google.load('visualization', '1', {packages:['table']});
+		google.setOnLoadCallback(drawIpTable);
+		function drawIpTable() {
+			// Create and populate the data table.
+			var data = google.visualization.arrayToDataTable([
+			['IP', 'Hits', 'Pages', 'Visits', 'Bandwidth (kb)'],";
+		foreach ($stat['ip'] as $ip => $params){
+				echo '[\'' . $ip . '\', ' . $params['hits'] . ',' . $params['pages'] . ',' . $params['visits'] .
+				 ',' . floor($params['band']) . '],';
+		}
+		echo "]);
+			visualization = new google.visualization.Table(document.getElementById('table_ip'));
+			var options = {
+				page: 'enable', pageSize: 20
+			};
+			visualization.draw(data, options);
+		} </script>";
+		
         break;
 	}
 	
