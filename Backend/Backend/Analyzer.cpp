@@ -1,5 +1,13 @@
-#include "stdafx.h"
+//#include "stdafx.h"
 #include "Analyzer.h"
+#include <stdio.h>
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <sstream>
+#include <set>
+#include <map>
 
 
 Analyzer::Analyzer(void)

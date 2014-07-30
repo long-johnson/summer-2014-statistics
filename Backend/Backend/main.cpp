@@ -1,8 +1,16 @@
 // Backend.cpp: определяет точку входа для консольного приложения.
 //
 
-#include "stdafx.h"
+//#include "stdafx.h"
 #include "Analyzer.h"
+#include <stdio.h>
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <sstream>
+#include <set>
+#include <map>
 
 
 int main(int argc, char * argv[])
@@ -27,7 +35,8 @@ int main(int argc, char * argv[])
 	// заполним список сайтов, которые нужно обработать и путей к ним
 	std::vector<std::string> pathToStatFiles;
 	std::vector<std::string> pathToLogFiles;
-	for each (string str in subscriptions){
+	for (int i=0, size=subscriptions.size(); i<size; i++){
+		string str = subscriptions[i];
 		ifstream sitesFile(str + "/sites.txt");
 		if (!sitesFile.is_open()) {
 			std::cerr << "<ExStatistics> Can't open " + str + "/sites.txt" << endl;

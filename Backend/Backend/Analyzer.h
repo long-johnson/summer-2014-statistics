@@ -1,7 +1,17 @@
 #pragma once
+#include <stdio.h>
+#include <string>
+//#include <time.h>
+#include <fstream>
+#include <iostream>
+#include <vector>
+#include <sstream>
+#include <set>
+#include <map>
 
 typedef long int TBandwidth;
 typedef long int THits;
+
 
 // Структура "запись лога" - разобранная строка лога
 struct TLogRecord
@@ -43,7 +53,7 @@ private:
 	///
 	/// Осуществить запись в файлы статистики
 	///
-	void Analyzer::writeToStatFiles(std::ofstream & hitsFile, std::ofstream & uniqueVisitorsFile,
+	void writeToStatFiles(std::ofstream & hitsFile, std::ofstream & uniqueVisitorsFile,
 								std::ofstream & bandwidthFile, std::ofstream & pagesFile,
 								std::ofstream & visitsFile, std::ofstream & ipMappingFile);
 public:
